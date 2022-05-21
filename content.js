@@ -94,14 +94,16 @@ function disableTab() {
 
     let popup = document.getElementById('zhongwen-window');
     if (popup) {
-        popup.parentNode.removeChild(popup);
+        popup.parentNode.removeChild(popup); // parent node seems to reference document which then removes popup
     }
 
     clearHighlight();
 }
 
+// keyDown represent a keyboard event from the enableTab()
 function onKeyDown(keyDown) {
 
+    // .crtlKey indicates if control key or widndows was pressed; 
     if (keyDown.ctrlKey || keyDown.metaKey) {
         return;
     }
@@ -122,6 +124,7 @@ function onKeyDown(keyDown) {
         return;
     }
 
+    // isVisible() seems to return true if popup is visible and false if not or not existing
     if (!isVisible()) {
         return;
     }
@@ -373,18 +376,28 @@ function onKeyDown(keyDown) {
             }
             break;
 
+        case  79: // 'o'
+            if (keyDown.altKey) {
+                f
+            }
+
+            break;
+
         default:
             return;
     }
 }
 
+// listener/callback to addEventListener("mousemove", )
 function onMouseMove(mouseMove) {
+    // event.target should reference cursor hovering node (check documentation) -- TEXTAREA is an HTML tag
     if (mouseMove.target.nodeName === 'TEXTAREA' || mouseMove.target.nodeName === 'INPUT'
         || mouseMove.target.nodeName === 'DIV') {
 
         let div = document.getElementById('zhongwenDiv');
-
-        if (mouseMove.altKey) {
+        
+        // boolean MouseEvent.altkKey indicates whether the alt key was pressed or not
+        if (mouseMove.altKey) { // when the alt key is pressed it creates a div to read inputs
 
             if (!div && (mouseMove.target.nodeName === 'TEXTAREA' || mouseMove.target.nodeName === 'INPUT')) {
 
@@ -393,8 +406,8 @@ function onMouseMove(mouseMove) {
                 div.scrollTop = mouseMove.target.scrollTop;
                 div.scrollLeft = mouseMove.target.scrollLeft;
             }
-        } else {
-            if (div) {
+        } else { // alt key not pressed
+            if (div) { // and the div exists
                 document.body.removeChild(div);
             }
         }
@@ -405,22 +418,23 @@ function onMouseMove(mouseMove) {
             return;
         }
     }
-    clientX = mouseMove.clientX;
+    clientX = mouseMove.clientX; // refers to the x and y in reference to the visable area of the browser window (not including toolobars and scroll bars)
     clientY = mouseMove.clientY;
 
     let range;
-    let rangeNode;
-    let rangeOffset;
+    let rangeNode; // the contents of the node containing the mouse
+    let rangeOffset; // the number of child nodes between the start of startContainer and the actual mouse hover (one character of text counts as one node) starts at index 0
 
     // Handle Chrome and Firefox
-    if (document.caretRangeFromPoint) {
+    if (document.caretRangeFromPoint) { // .caretRangeFromPoint checks for browser support first
         range = document.caretRangeFromPoint(mouseMove.clientX, mouseMove.clientY);
         if (range === null) {
             return;
         }
-        rangeNode = range.startContainer;
-        rangeOffset = range.startOffset;
-    } else if (document.caretPositionFromPoint) {
+        rangeNode = range.startContainer; // the node the range begins
+        rangeOffset = range.startOffset; // returns a number representing where in the startContainer the range starts
+        // essentially the number of words between the beginning of the container and the mouse hover
+    } else if (document.caretPositionFromPoint) { // .caretRangeFromPoint doesn't work and caretPositionFromPoint works
         range = document.caretPositionFromPoint(mouseMove.clientX, mouseMove.clientY);
         if (range === null) {
             return;
@@ -429,18 +443,21 @@ function onMouseMove(mouseMove) {
         rangeOffset = range.offset;
     }
 
+    // if mousemoved and nothing changed
     if (mouseMove.target === savedTarget) {
         if (rangeNode === savedRangeNode && rangeOffset === savedRangeOffset) {
             return;
         }
     }
 
+    // resets the timer if mouse moved again (before setTimeout() terminates)
     if (timer) {
         clearTimeout(timer);
         timer = null;
     }
 
-    if (rangeNode.data && rangeOffset === rangeNode.data.length) {
+    // rangeNode.data references the rangeNode without the quotes, length refers to # of characters; data returns undefined if not a text node
+    if (rangeNode.data && rangeOffset === rangeNode.data.length) { // on the final chracter of the rangeNode
         rangeNode = findNextTextNode(rangeNode.parentNode, rangeNode);
         rangeOffset = 0;
     }
@@ -457,7 +474,7 @@ function onMouseMove(mouseMove) {
     selStartDelta = 0;
     selStartIncrement = 1;
 
-    if (rangeNode && rangeNode.data && rangeOffset < rangeNode.data.length) {
+    if (rangeNode && rangeNode.data && rangeOffset < rangeNode.data.length) { // user's mouse hover is not the final character of the rangeNode
         popX = mouseMove.clientX;
         popY = mouseMove.clientY;
         timer = setTimeout(() => triggerSearch(), 50);
@@ -474,10 +491,11 @@ function onMouseMove(mouseMove) {
     }
 }
 
+// note that the return value is not related to timer
 function triggerSearch() {
 
     let rangeNode = savedRangeNode;
-    let selStartOffset = savedRangeOffset + selStartDelta;
+    let selStartOffset = savedRangeOffset + selStartDelta; // intially at savedRangeOffset + 0
 
     selStartIncrement = 1;
 
@@ -493,7 +511,7 @@ function triggerSearch() {
         return 2;
     }
 
-    let u = rangeNode.data.charCodeAt(selStartOffset);
+    let u = rangeNode.data.charCodeAt(selStartOffset); // basically evaluates the initial character in UTF-16 code
 
     // not a Chinese character
     if (isNaN(u) ||
@@ -509,19 +527,21 @@ function triggerSearch() {
 
     let selEndList = [];
     let originalText = getText(rangeNode, selStartOffset, selEndList, 30 /*maxlength*/);
+    // just gets the text from the node and next node up to 30 characters and updates selEndList with initial node and ending character
+    // and potentially next nodes if they exist/if 30 characters haven't been reacehed in text
 
     // Workaround for Google Docs: remove zero-width non-joiner &zwnj;
     let text = originalText.replace(zwnj, '');
 
-    savedSelStartOffset = selStartOffset;
-    savedSelEndList = selEndList;
+    savedSelStartOffset = selStartOffset; // saves initial offset
+    savedSelEndList = selEndList; // updates saved values after getText()
 
     chrome.runtime.sendMessage({
             'type': 'search',
             'text': text,
             'originalText': originalText
         },
-        processSearchResult
+        processSearchResult // takes the response and passes as argument into function
     );
 
     return 0;
@@ -585,13 +605,14 @@ function getText(startNode, offset, selEndList, maxLength) {
 
     let nextNode = startNode;
     while ((text.length < maxLength) && ((nextNode = findNextTextNode(nextNode.parentNode, nextNode)) !== null)) {
-        text += getTextFromSingleNode(nextNode, selEndList, maxLength - text.length);
+        text += getTextFromSingleNode(nextNode, selEndList, maxLength - text.length); // basically just adds up to 30 characters from the next node if it exists to text
     }
 
     return text;
 }
 
 // modifies selEndList as a side-effect
+// (for future iterations in getText())
 function getTextFromSingleNode(node, selEndList, maxLength) {
     let endIndex;
 
@@ -780,12 +801,14 @@ function getTextForClipboard() {
     return result;
 }
 
+// creates a div of id = zhongwenDiv as opposed to zhongwen-window
 function makeDiv(input) {
     let div = document.createElement('div');
 
     div.id = 'zhongwenDiv';
-
+    // input is the nodeName -- in this case the Element.tagName (mousemove.target)
     let text;
+    // input value is the value in the input box
     if (input.value) {
         text = input.value;
     } else {

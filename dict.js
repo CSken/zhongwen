@@ -48,6 +48,7 @@
 
 export class ZhongwenDictionary {
 
+    // cedict_ts.u8 , cedict.idx, grammarKeywordsMin.json
     constructor(wordDict, wordIndex, grammarKeywords) {
         this.wordDict = wordDict;
         this.wordIndex = wordIndex;
@@ -55,20 +56,23 @@ export class ZhongwenDictionary {
         this.cache = {};
     }
 
+    //probably some type of binary search
     static find(needle, haystack) {
 
         let beg = 0;
         let end = haystack.length - 1;
 
         while (beg < end) {
-            let mi = Math.floor((beg + end) / 2);
-            let i = haystack.lastIndexOf('\n', mi) + 1;
+            let mi = Math.floor((beg + end) / 2); // first half of the page (in characters)
+            let i = haystack.lastIndexOf('\n', mi) + 1; // first half of the page (in lines) including the next line
 
-            let mis = haystack.substr(i, needle.length);
-            if (needle < mis) {
+            let mis = haystack.substr(i, needle.length); // needle.length is almost always less than i, so it returns one character;
+            // otherwise, it returns the string and keeps minimizing beg & end until one char
+            if (needle < mis) { // when comparing two strings the one occurring with letters closer to alphabet is smaller -- character by character basis,
+                // seems that cedict.idx has indexes for each character
                 end = i - 1;
             } else if (needle > mis) {
-                beg = haystack.indexOf('\n', mi + 1) + 1;
+                beg = haystack.indexOf('\n', mi + 1) + 1; // sets beginning to the next line after mi
             } else {
                 return haystack.substring(i, haystack.indexOf('\n', mi + 1));
             }
@@ -77,10 +81,12 @@ export class ZhongwenDictionary {
         return null;
     }
 
+    //grammarKeywords is an object from /data/grammerKeywordsMin.json
     hasKeyword(keyword) {
         return this.grammarKeywords[keyword];
     }
 
+    // word will just be the text
     wordSearch(word, max) {
 
         let entry = { data: [] };
@@ -88,7 +94,7 @@ export class ZhongwenDictionary {
         let dict = this.wordDict;
         let index = this.wordIndex;
 
-        let maxTrim = max || 7;
+        let maxTrim = max || 7; // defaults to 7 
 
         let count = 0;
         let maxLen = 0;
@@ -97,7 +103,7 @@ export class ZhongwenDictionary {
             while (word.length > 0) {
 
                 let ix = this.cache[word];
-                if (!ix) {
+                if (!ix) { 
                     ix = ZhongwenDictionary.find(word + ',', index);
                     if (!ix) {
                         this.cache[word] = [];
@@ -107,7 +113,7 @@ export class ZhongwenDictionary {
                     this.cache[word] = ix;
                 }
 
-                for (let j = 1; j < ix.length; ++j) {
+                for (let j = 1; j < ix.length; ++j) { // pre-increment essentially the same as post in this context
                     let offset = ix[j];
 
                     let dentry = dict.substring(offset, dict.indexOf('\n', offset));

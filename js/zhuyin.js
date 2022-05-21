@@ -10,6 +10,7 @@ const pinyinTones = {
     5: ''
 };
 
+// unicode encoding
 const zhuyinMap = {
     'a': '\u311a',
     'ai': '\u311e',

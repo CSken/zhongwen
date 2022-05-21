@@ -67,6 +67,7 @@ let zhongwenOptions = window.zhongwenOptions = {
     toneColorScheme: localStorage['toneColorScheme'] || 'standard'
 };
 
+// activates the extension on tabID with showHelp if toggled in activateExtensionToggle or enableTab()
 function activateExtension(tabId, showHelp) {
 
     isActivated = true;
@@ -74,9 +75,9 @@ function activateExtension(tabId, showHelp) {
     isEnabled = true;
     // values in localStorage are always strings
     localStorage['enabled'] = '1';
-
+    
     if (!dict) {
-        loadDictionary().then(r => dict = r);
+        loadDictionary().then(r => dict = r);       // loadDictionary declared at bottom
     }
 
     chrome.tabs.sendMessage(tabId, {
@@ -162,15 +163,16 @@ function activateExtension(tabId, showHelp) {
     );
 }
 
+// chrome.runtime along with getURL() allows for access to external resources
 async function loadDictData() {
     let wordDict = fetch(chrome.runtime.getURL(
-        "data/cedict_ts.u8")).then(r => r.text());
+        "data/cedict_ts.u8")).then(r => r.text());              // .text() returns a promise with the result resolved as a string
     let wordIndex = fetch(chrome.runtime.getURL(
         "data/cedict.idx")).then(r => r.text());
     let grammarKeywords = fetch(chrome.runtime.getURL(
-        "data/grammarKeywordsMin.json")).then(r => r.json());
+        "data/grammarKeywordsMin.json")).then(r => r.json());   // .json() returns a promise with the .json returns as js object
 
-    return Promise.all([wordDict, wordIndex, grammarKeywords]);
+    return Promise.all([wordDict, wordIndex, grammarKeywords]); // returns a resolved promise with the result as an array with all three arguments' results
 }
 
 
@@ -215,6 +217,7 @@ function deactivateExtension() {
     chrome.contextMenus.removeAll();
 }
 
+// activated when clicked on browserAction
 function activateExtensionToggle(currentTab) {
     if (isActivated) {
         deactivateExtension();
@@ -223,6 +226,7 @@ function activateExtensionToggle(currentTab) {
     }
 }
 
+// seems to activateExtension on tab if opened and extension enabled
 function enableTab(tabId) {
     if (isEnabled) {
 
@@ -261,6 +265,7 @@ function search(text) {
 
 chrome.browserAction.onClicked.addListener(activateExtensionToggle);
 
+// basically just activates extension on tabs, including when changed URLs; ensures it doens't work on wordlist or help
 chrome.tabs.onActivated.addListener(activeInfo => {
     if (activeInfo.tabId === tabIDs['wordlist']) {
         chrome.tabs.reload(activeInfo.tabId);
@@ -274,12 +279,14 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo) {
     }
 });
 
+// creates a tab at url and then adds the tab.id to tabIDS[tabType]
 function createTab(url, tabType) {
     chrome.tabs.create({ url }, tab => {
         tabIDs[tabType] = tab.id;
     });
 }
 
+// the request is the message (any), sender is an object (MessageSender) containing certain information, the cb sends a repsonse back to the sender
 chrome.runtime.onMessage.addListener(function (request, sender, callback) {
 
     let tabID;
@@ -296,8 +303,8 @@ chrome.runtime.onMessage.addListener(function (request, sender, callback) {
         case 'open': {
             tabID = tabIDs[request.tabType];
             if (tabID) {
-                chrome.tabs.get(tabID, () => {
-                    if (!chrome.runtime.lastError) {
+                chrome.tabs.get(tabID, () => {          // retrieves info about the existing tab
+                    if (!chrome.runtime.lastError) {    // lastError retrieves object info about an error during an API method callback if there was an error
                         // activate existing tab
                         chrome.tabs.update(tabID, { active: true, url: request.url });
                     } else {
